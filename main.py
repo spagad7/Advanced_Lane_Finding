@@ -5,10 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from moviepy.editor import VideoFileClip
-from calibration import *
-from threshold import *
-from perspective import *
-from lanes import *
+from camera import *
+from line import *
+
 
 if __name__ == '__main__':
     # Parse Arguments
@@ -25,9 +24,6 @@ if __name__ == '__main__':
     parser.add_argument('-ny',
                         type=int,
                         help='number of inner corners along y direction')
-    parser.add_argument('-i',
-                        type=str,
-                        help='path to image file')
     parser.add_argument('-v',
                         type=str,
                         help='path to video file')
@@ -43,40 +39,16 @@ if __name__ == '__main__':
         print("Insufficient arguments: must specify calib file name, nx and ny")
         quit()
 
-    if(args.i == None and args.v == None):
-        print("Insufficient arguments: either image or video file must be\
-                specified!")
-        quit()
-
-    # Calibrate Camera
-    if args.p != None:
-        mtx, dist = calibrateCamera(args.p, args.nx, args.ny)
-        saveCalibData(args.c, mtx, dist)
-    elif args.c != None and args.p == None:
-        mtx, dist = loadCalibData(args.c)
-
-    '''
-    # Set threshold values
-    thresh = {
-              'sobel' : (65, 100),
-              'mag' : (30, 100),
-              'dir' : (1.1, 1.3),
-              'hue_y' : (17, 30),
-              'sat_y' : (160, 255),
-              'light_y' : (200, 255),
-              'hue_w' : (0, 0),
-              'sat_w' : (0, 0),
-              'light_w' : (0, 0),
-              }
-    '''
+    # Configure camera settings
     color_settings = [
                         {'cspace':'LAB', 'channel':2, 'thresh':(150, 255)},
-                        {'cspace':'HLS', 'channel':1, 'thresh':(210, 255)}
+                        {'cspace':'HLS', 'channel':1, 'thresh':(205, 255)}
                      ]
-
-    # Set transform coords
-    trans_src = np.array([[535,32], [760,32],
-                          [1120,200], [170,200]],
+    img_settings = {'img_w':1280, 'img_h':720,
+                    'img_warp_w':250, 'img_warp_h':400}
+    # Perspective transform coords
+    trans_src = np.array([[565,455], [709,455],
+                          [1100,655], [180,655]],
                            dtype='float32')
     offset = 10
     w = 200
@@ -84,51 +56,43 @@ if __name__ == '__main__':
     trans_dst = np.array([[offset, offset], [w+offset, offset],
                               [w+offset,h+offset], [offset,h+offset]],
                                dtype='float32')
+    transform_settings = {'trans_src':trans_src, 'trans_dst':trans_dst}
 
-    # This is temporary, will be removed after debugging
-    # Read test image
-    if args.i != None:
-        img = cv2.imread(args.i)
-        # Undistort image
-        img_undst = cv2.undistort(img, mtx, dist, None, mtx)
-        # Apply color and gradient threshold to the image
-        img_bin = convertToBinary(img_undst, settings)
-        # Plot the result
-        f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
-        f.tight_layout()
-        ax1.imshow(img)
-        ax1.set_title('Original Image', fontsize=25)
-        ax2.imshow(img_bin, cmap='gray')
-        ax2.set_title('Binary Image', fontsize=25)
-        plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
-        plt.show()
+    # Create camera object
+    cam = Camera(color_settings, img_settings, transform_settings)
 
-    # Read video
+    # Calibrate Camera
+    if args.p != None:
+        cam.calibrate(args.p, args.nx, args.ny)
+        cam.saveCalibData(args.c)
+    elif args.c != None and args.p == None:
+        cam.loadCalibData(args.c)
+
+    # Calculate perspective transform
+    cam.calcPerspectiveTransform()
+
+    # Create lines object
+    line = Line(cam)
+
+    # Process video input
     if args.v != None:
         print(args.v)
         video = VideoFileClip(args.v)
-        cv2.namedWindow("Binary", flags=cv2.WINDOW_AUTOSIZE)
+        #cv2.namedWindow("Input", flags=cv2.WINDOW_AUTOSIZE)
         cv2.namedWindow("Top-Down", flags=cv2.WINDOW_AUTOSIZE)
+        cv2.namedWindow("Output", flags=cv2.WINDOW_AUTOSIZE)
 
-        #i = 0
         for frame in video.iter_frames():
             # Undistort frame
-            frame_undst = cv2.undistort(frame, mtx, dist, None, mtx)
-            # Crop the image
-            top = 435
-            bottom = 75
-            h = frame_undst.shape[0]
-            frame_crop = frame_undst[top:h-bottom, :]
-            # Binarize frame
-            frame_bin = convertToBinary(frame_crop, color_settings)
-            #img_name = "videos/cropped2/img" + str(i) + ".png"
-            #i = i + 1
-            #cv2.imwrite(img_name, frame_bin)
-            cv2.imshow("Binary", frame_bin)
-            # Get top-down view of image
-            frame_td = transformImage(frame_bin, trans_src, trans_dst)
-            #cv2.imshow("Top-Down", frame_td)
+            frame_undst = cam.undistortImg(frame)
+            #cv2.imshow("Input", frame_undst)
+            # Warp ROI to get top-down view
+            frame_warp = cam.warpImage(frame_undst)
+            cv2.imshow("Top-Down", frame_warp)
+            # Convert warped frame to binary
+            frame_bin = cam.convertToBinary(frame_warp)
             # Detect lanes
-            img_lanes = detectLanes(frame_td)
-            cv2.imshow("Top-Down", img_lanes)
+            line.fit(frame_bin)
+            frame_lane = line.drawLane(frame_undst)
+            cv2.imshow("Output", frame_lane)
             cv2.waitKey(1)
