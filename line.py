@@ -4,170 +4,128 @@ import cv2
 import numpy as np
 
 class Line():
-    def __init__(self, camera):
-        self.cam = camera
+    def __init__(self, side):
+        self.side = side
         self.min_pix = 50
         self.n_windows = 9
-        self.win_width = 25
-        self.plot_x_left = None
-        self.plot_x_right = None
-        self.plot_y = None
-        self.pts_left = None
-        self.pts_right = None
+        self.win_w = 25
+        self.windows = []
+        self.img_h = 0
+        self.img_w = 0
+        self.peak_cur = 0
+        self.detected = False
+        self.x = None
+        self.y = None
+        self.line_y = None
+        self.line_x = None
+        self.pts = None
 
-    # Function to detect lanes
-    def fit(self, img):
-        lanes_found = False
-        img_h = img.shape[0]
-        img_w = img.shape[1]
-        img_out = np.dstack((img, img, img))*255
+    # Function to find line in a binary image
+    def findLine(self, img):
+        self.img_h = img.shape[0]
+        self.img_w = img.shape[1]
+        win_h = self.img_h // self.n_windows
 
-        # Get indices of non-zero pixels
+        # Find histogram of lower half of the image
+        hist = np.sum(img[self.img_h//2:,:], axis=0)
+        if self.side=='left':
+            peak = np.argmax(hist[:self.img_w//2])
+        elif self.side=='right':
+            peak = np.argmax(hist[self.img_w//2:]) + self.img_w//2
+        self.peak_cur = peak
+
+        # Find nonzero pixels in the image
         nonzero = img.nonzero()
-        nonzero_y = np.array(nonzero[0])
-        nonzero_x = np.array(nonzero[1])
+        nonzero_y = nonzero[0]
+        nonzero_x = nonzero[1]
 
-        self.min_pix = 50
-        left_lane_inds = []
-        right_lane_inds = []
+        line_inds = []
+        # if line not detected in previous frame
+        if self.detected == False:
+            for i in range(self.n_windows):
+                # Calculate window boundaries only for first time
+                win_low = self.img_h - (i)*win_h
+                win_high = self.img_h - (i+1)*win_h
+                win_left = self.peak_cur - self.win_w
+                win_right = self.peak_cur + self.win_w
+                self.windows.append({'win_low' : win_low,
+                                     'win_high' : win_high,
+                                     'win_left' : win_left,
+                                     'win_right' : win_right})
 
-        if(lanes_found == False):
-            # Configure window
-            win_height = img_h//self.n_windows
-
-            # Get histogram of lower half of the image
-            hist = np.sum(img[img_h//2:,:], axis=0)
-
-            # Get the index of peak in left and right half
-            midpoint = hist.shape[0]//2
-            peak_left = np.argmax(hist[:midpoint])
-            peak_right = np.argmax(hist[midpoint:]) + midpoint
-            cur_peak_left = peak_left
-            cur_peak_right = peak_right
-
-            # Find lane in each window
-            for window in range(self.n_windows):
-                # Define boundary for left and right windows
-                win_bottom = img_h - (window+1) * win_height
-                win_top = img_h - window * win_height
-                win_left_left = cur_peak_left - self.win_width
-                win_left_right = cur_peak_left + self.win_width
-                win_right_left = cur_peak_right - self.win_width
-                win_right_right = cur_peak_right + self.win_width
-
-                # Draw left window
-                cv2.rectangle(img_out,
-                              (win_left_left, win_bottom),
-                              (win_left_right, win_top),
-                              (0, 255, 0), 1)
-                # Draw right window
-                cv2.rectangle(img_out,
-                              (win_right_left, win_bottom),
-                              (win_right_right, win_top),
-                              (0, 255, 0), 1)
-
-                # Find nonzero pixels which lie inside left and right windows
-                left_inds = ((nonzero_x >= win_left_left) &
-                                (nonzero_x < win_left_right) &
-                                (nonzero_y >= win_bottom) &
-                                (nonzero_y < win_top)).nonzero()[0]
-
-                right_inds = ((nonzero_x >= win_right_left) &
-                              (nonzero_x < win_right_right) &
-                              (nonzero_y >= win_bottom) &
-                              (nonzero_y < win_top)).nonzero()[0]
-
-                left_lane_inds.append(left_inds)
-                right_lane_inds.append(right_inds)
+                # Get y-coord of points which lie inside the window
+                inds = ((nonzero_x >= win_left)
+                        & (nonzero_x < win_right)
+                        & (nonzero_y >= win_high)
+                        & (nonzero_y < win_low)).nonzero()[0]
+                line_inds.append(inds)
 
                 # Update cur_peak_left and cur_peak_right
-                if(len(left_inds) > self.min_pix):
-                    cur_peak_left = np.int(np.mean(nonzero_x[left_inds]))
-                if(len(right_inds) > self.min_pix):
-                    cur_peak_right = np.int(np.mean(nonzero_x[right_inds]))
+                if(inds.size > self.min_pix):
+                    self.peak_cur = np.int(np.mean(nonzero_x[inds]))
 
-            left_lane_inds = np.concatenate(left_lane_inds)
-            right_lane_inds = np.concatenate(right_lane_inds)
+            line_inds = np.concatenate(line_inds)
+
+        # TODO: write else condition
+        # elif self.detected == True:
+
+        # Get x and y coords of pixels lying on the line
+        self.x = nonzero_x[line_inds]
+        self.y = nonzero_y[line_inds]
+
+        # TODO: change the if condition to condition for detecting a line
+        if self.x.size != 0 and self.y.size != 0:
+            # x = ay^2 + by + c
+            line_coeff = np.polyfit(self.y, self.x, 2)
+            if self.line_y == None:
+                self.line_y = np.linspace(0, self.img_h-1, self.img_h)
+            self.line_x = (line_coeff[0]*self.line_y**2
+                            + line_coeff[1]*self.line_y
+                            + line_coeff[2])
+
+    # Function to draw line
+    def drawLine(self, img):
+        if self.line_x != None and self.line_y != None:
+            # Color pixels
+            if self.side == 'left':
+                img[self.y, self.x] = [255, 0, 0]
+            elif self.side == 'right':
+                img[self.y, self.x] = [0, 0, 255]
+
+            # Draw rectangles
+            for i in range(self.n_windows):
+                cv2.rectangle(img,
+                        (self.windows[i]['win_left'], self.windows[i]['win_low']),
+                        (self.windows[i]['win_right'], self.windows[i]['win_high']),
+                        (0, 255, 0), 1)
+            self.windows = []
+
+            # Draw line
+            self.pts = np.array(np.transpose(np.vstack([self.line_x, self.line_y]).astype('int32')))
+            pts_rs = self.pts.reshape(-1, 1, 2)
+            cv2.polylines(img, [pts_rs], False, [0, 255, 255], 1)
+        return img
 
 
-        elif(lanes_found == True):
-            margin = 25
-            # Find indices of pixels which correspond to left lane
-            left_x_low = (left_lane[0]*(nonzero_y**2)
-                            + left_lane[1]*(nonzero_y)
-                            + left_lane[2] - margin)
-            left_x_high = (left_lane[0]*(nonzero_y**2)
-                            + left_lane[1]*(nonzero_y)
-                            + left_lane[2] + margin)
-            left_inds =((nonzero_x > left_x_low)
-                        & (nonzero_x < left_x_high)).nonzero()[0]
+# Function to draw lane
+def drawLane(cam, img_orig, img_bin, line_l, line_r):
+    # Find lines
+    line_l.findLine(img_bin)
+    line_r.findLine(img_bin)
+    # Draw lines
+    img_zeros = np.zeros_like(img_bin).astype('uint8')
+    img = np.dstack((img_zeros, img_zeros, img_zeros))*255
+    img_lines = line_l.drawLine(img)
+    img_lines = line_r.drawLine(img_lines)
+    cv2.imshow("Lines", img_lines)
 
-            # Find indices of pixels which correspond to right lane
-            right_x_low = (right_lane[0]*(nonzero_y**2)
-                            + right_lane[1]*(nonzero_y)
-                            + right_lane[2] - margin)
-            right_x_high = (right_lane[0]*(nonzero_y**2)
-                            + right_lane[1]*nonzero_y
-                            + right_lane[2] + margin)
-            right_inds = ((nonzero_x > right_x_low)
-                            & (nonzero_x < right_x_high)).nonzero()[0]
-
-            left_lane_inds.append(left_inds)
-            right_lane_inds.append(right_inds)
-
-
-        # Get indices of all the pixels which correspond to left and right lanes
-        left_lane_x = nonzero_x[left_lane_inds]
-        left_lane_y = nonzero_y[left_lane_inds]
-        right_lane_x = nonzero_x[right_lane_inds]
-        right_lane_y = nonzero_y[right_lane_inds]
-
-        if(left_lane_x.size != 0 and left_lane_y.size != 0 and
-        right_lane_x.size != 0 and right_lane_y.size != 0):
-            # Get coefficients of the curve
-            left_lane = np.polyfit(left_lane_y, left_lane_x, 2)
-            right_lane = np.polyfit(right_lane_y, right_lane_x, 2)
-            lanes_found = False
-            # Generate y values
-            if(self.plot_y == None):
-                self.plot_y = np.linspace(0, img_h-1, img_h)
-            # Calculate x values for left and right lane
-            self.plot_x_left = (left_lane[0]*(self.plot_y**2)
-                                + left_lane[1]*self.plot_y
-                                + left_lane[2])
-            self.plot_x_right = (right_lane[0]*(self.plot_y**2)
-                                + right_lane[1]*self.plot_y
-                                + right_lane[2])
-
-            img_out[nonzero_y[left_lane_inds],
-                    nonzero_x[left_lane_inds]] = [255, 0, 0]
-            img_out[nonzero_y[right_lane_inds],
-                    nonzero_x[right_lane_inds]] = [0, 0, 255]
-
-            # Draw left line
-            self.pts_left = np.array(np.transpose(np.vstack([self.plot_x_left,\
-                                                self.plot_y]).astype('int32')))
-            pts_left_rs = self.pts_left.reshape(-1, 1, 2)
-            cv2.polylines(img_out, [pts_left_rs], False, (0, 255, 255), 4)
-
-            # Draw right line
-            self.pts_right = np.array(np.transpose(np.vstack([self.plot_x_right,\
-                                                self.plot_y]).astype('int32')))
-            pts_right_rs = self.pts_right.reshape(-1, 1, 2)
-            cv2.polylines(img_out, [pts_right_rs], False, (0, 255, 255), 4)
-        else:
-            lanes_found = False
-        cv2.imshow("Lane Lines", img_out)
-
-    # Function to draw lane
-    def drawLane(self, img):
-        # Create blank BGR image
-        img_warp = np.zeros_like(img).astype(np.uint8)
-        # Arrange line points
-        pts_lane = np.hstack((self.pts_left, self.pts_right))
-        pts_lane = pts_lane.reshape(-1, 1, 2)
-        # Draw lane
-        cv2.fillPoly(img_warp, [pts_lane], (0, 255, 0))
-        img_lanes = self.cam.unwarpImage(img_warp)
-        img_result = cv2.addWeighted(img, 1.0, img_lanes, 0.3, 0)
-        return img_result
+    # Create blank BGR image
+    img_warp = np.zeros_like(img_orig).astype(np.uint8)
+    # Arrange line points
+    pts_lane = np.hstack((line_l.pts, line_r.pts))
+    pts_lane = pts_lane.reshape(-1, 1, 2)
+    # Draw lane
+    cv2.fillPoly(img_warp, [pts_lane], (0, 255, 0))
+    img_lanes = cam.unwarpImage(img_warp)
+    img_result = cv2.addWeighted(img_orig, 1.0, img_lanes, 0.3, 0)
+    return img_result

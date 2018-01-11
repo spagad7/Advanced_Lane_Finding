@@ -71,8 +71,9 @@ if __name__ == '__main__':
     # Calculate perspective transform
     cam.calcPerspectiveTransform()
 
-    # Create lines object
-    line = Line(cam)
+    # Create object for left and right lines
+    line_l = Line('left')
+    line_r = Line('right')
 
     # Process video input
     if args.v != None:
@@ -92,7 +93,6 @@ if __name__ == '__main__':
             # Convert warped frame to binary
             frame_bin = cam.convertToBinary(frame_warp)
             # Detect lanes
-            line.fit(frame_bin)
-            frame_lane = line.drawLane(frame_undst)
-            cv2.imshow("Output", frame_lane)
+            frame_out = drawLane(cam, frame_undst, frame_bin, line_l, line_r)
+            cv2.imshow("Output", frame_out)
             cv2.waitKey(1)
