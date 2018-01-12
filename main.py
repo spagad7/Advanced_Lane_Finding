@@ -79,8 +79,8 @@ if __name__ == '__main__':
     #                'img_warp_w':256, 'img_warp_h':115}
 
     # Perspective transform coords
-    trans_src = np.array([[565,455], [709,455],
-                          [1100,655], [180,655]],
+    trans_src = np.array([[536,475], [742,475],
+                          [1110,650], [200,650]],
                            dtype='float32')
     offset = 10
     w = 200
