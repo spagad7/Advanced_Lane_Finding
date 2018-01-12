@@ -9,6 +9,35 @@ from camera import *
 from line import *
 
 
+# Function to draw lane
+def drawLane(cam, img_orig, img_bin, line_l, line_r):
+    # Find lines
+    line_l.findLine(img_bin)
+    line_r.findLine(img_bin)
+    # Draw lines
+    img_zeros = np.zeros_like(img_bin).astype('uint8')
+    img = np.dstack((img_zeros, img_zeros, img_zeros))*255
+    img_lines = line_l.drawLine(img)
+    img_lines = line_r.drawLine(img_lines)
+    cv2.imshow("Lines", img_lines)
+
+    # Create blank BGR image
+    if(len(line_l.pts) != 0 and len(line_r.pts) != 0
+        and len(line_l.pts) == len(line_r.pts)):
+        img_warp = np.zeros_like(img_orig).astype(np.uint8)
+        # Arrange line points
+        pts_lane = np.hstack((line_l.pts, line_r.pts))
+        pts_lane = pts_lane.reshape(-1, 1, 2)
+        # Draw lane
+        cv2.fillPoly(img_warp, [pts_lane], (0, 255, 0))
+        img_lanes = cam.unwarpImage(img_warp)
+        img_result = cv2.addWeighted(img_orig, 1.0, img_lanes, 0.3, 0)
+    else:
+        print("Lane not found!")
+        img_result = img_orig
+    return img_result
+
+
 if __name__ == '__main__':
     # Parse Arguments
     parser = argparse.ArgumentParser()
@@ -41,21 +70,28 @@ if __name__ == '__main__':
 
     # Configure camera settings
     color_settings = [
-                        {'cspace':'LAB', 'channel':2, 'thresh':(150, 255)},
-                        {'cspace':'HLS', 'channel':1, 'thresh':(205, 255)}
+                        {'cspace':'LAB', 'channel':2, 'thresh':(160, 255)},
+                        {'cspace':'HLS', 'channel':1, 'thresh':(210, 255)}
                      ]
     img_settings = {'img_w':1280, 'img_h':720,
-                    'img_warp_w':250, 'img_warp_h':400}
+                    'img_warp_w':250, 'img_warp_h':300}
+    #img_settings = {'img_w':1280, 'img_h':720,
+    #                'img_warp_w':256, 'img_warp_h':115}
+
     # Perspective transform coords
     trans_src = np.array([[565,455], [709,455],
                           [1100,655], [180,655]],
                            dtype='float32')
     offset = 10
     w = 200
-    h = 400
-    trans_dst = np.array([[offset, offset], [w+offset, offset],
-                              [w+offset,h+offset], [offset,h+offset]],
-                               dtype='float32')
+    h = 300
+    #offset = 30
+    #w = 256
+    #h = 144
+    trans_dst = np.array([[offset, offset],
+                          [w-offset, offset],
+                          [w-offset,h-offset],
+                          [offset,h-offset]], dtype='float32')
     transform_settings = {'trans_src':trans_src, 'trans_dst':trans_dst}
 
     # Create camera object
