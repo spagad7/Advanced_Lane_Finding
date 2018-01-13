@@ -20,8 +20,10 @@ class Line():
         self.line_y = None
         self.line_x = None
         self.pts = np.array([])
-        self.avg_x_list = deque()
-        self.tol_x = 3
+        self.prev_x_list = deque()
+        self.prev_coeff = np.array([])
+        self.prev_coeff_list = deque()
+        self.prev_rad_list = deque()
 
 
     # Function to find line in a binary image
@@ -44,6 +46,7 @@ class Line():
         nonzero_x = nonzero[1]
 
         line_inds = []
+        prev_n = 10
         # Line not detected in previous frame
         if self.detected == False:
             # Sliding Window algorithm
@@ -76,29 +79,69 @@ class Line():
             # inside search windows
             self.x_coords = nonzero_x[line_inds]
             self.y_coords = nonzero_y[line_inds]
+            # Calculate y-coords of line
+            if self.line_y == None:
+                self.line_y = np.linspace(0, self.img_h-1, self.img_h)
 
             # Line detected
             if (self.x_coords.size != 0 and self.y_coords.size != 0
                 and self.lineDetected() == True):
-                # x = ay^2 + by + c
+                # Calculate polynomial coefficients: x = ay^2 + by + c
                 line_coeff = np.polyfit(self.y_coords, self.x_coords, 2)
-                if self.line_y == None:
-                    self.line_y = np.linspace(0, self.img_h-1, self.img_h)
+                # Calculate the x-coords of the line
                 line_x_new = (line_coeff[0]*self.line_y**2
                                 + line_coeff[1]*self.line_y
                                 + line_coeff[2])
-                # Line valid
-                if self.lineValid(line_x_new) == True:
-                    self.line_x = line_x_new
-                else:
-                    print(self.side +
-                            " line invalid, using previous measurements")
+                # Calculate average radius of curvature of line
+                rad_curv_new = np.mean(
+                ((1 + (2*line_coeff[0]*self.line_y + line_coeff[1])**2)**1.5)
+                / np.absolute(2*line_coeff[0]))
 
+                # Line valid
+                if self.lineValid(line_x_new, rad_curv_new) == True:
+                    self.line_x = line_x_new
+                    self.prev_coeff = line_coeff
+                    #print(self.side +
+                    #    ": updated prev_coeff: ",  self.prev_coeff)
+
+                # Line invalid
+                else:
+                    if(len(self.prev_coeff_list) != 0):
+                        avg_coeff = np.mean(self.prev_coeff_list, axis=0)
+                        self.line_x = (avg_coeff[0]*self.line_y**2
+                                        + avg_coeff[1]*self.line_y
+                                        + avg_coeff[2])
+                        #print(self.side +
+                        #    ": invalid, using avg_coeff: ",  avg_coeff)
+
+                # Update prev_x_list
+                if(len(self.prev_x_list) <= prev_n):
+                    self.prev_x_list.append(np.mean(line_x_new))
+                else:
+                    self.prev_x_list.popleft()
+                    self.prev_x_list.append(np.mean(line_x_new))
+                # Update prev_rad_list
+                if(len(self.prev_rad_list) <= prev_n):
+                    self.prev_rad_list.append(rad_curv_new)
+                else:
+                    self.prev_rad_list.popleft()
+                    self.prev_rad_list.append(rad_curv_new)
+                # Update prev_coeff_list
+                if(len(self.prev_coeff_list) <= prev_n):
+                    self.prev_coeff_list.append(line_coeff)
+                else:
+                    self.prev_coeff_list.popleft()
+                    self.prev_coeff_list.append(line_coeff)
 
             # Line not detected: use previous measurements
             else:
-                print(self.side +
-                        " Line not detected, using previous measurements")
+                if(len(self.prev_coeff_list) != 0):
+                    avg_coeff = np.mean(self.prev_coeff_list, axis=0)
+                    self.line_x = (avg_coeff[0]*self.line_y**2
+                                    + avg_coeff[1]*self.line_y
+                                    + avg_coeff[2])
+                    print(self.side +
+                        ": not detected, using avg_coeff: ",  avg_coeff)
 
         # TODO: Line detected in the previous frame
         # elif self.detected == True:
@@ -106,10 +149,12 @@ class Line():
 
     # Function to check if line has been detected
     def lineDetected(self):
+        # Set thresholds
         if self.side == 'left':
             n = 5
         elif self.side == 'right':
             n = 10
+        # Check condition
         if len(np.unique(self.y_coords)) >= self.img_h/n:
             return True
         else:
@@ -117,24 +162,69 @@ class Line():
 
 
     # Function to check validity of detected line
-    def lineValid(self, line_x_new):
-        n = 10
-        popped = None
-        avg_old = np.average(self.avg_x_list)
-        if(len(self.avg_x_list) <= n):
-            self.avg_x_list.append(np.average(line_x_new))
-        else:
-            popped = self.avg_x_list.popleft()
-            self.avg_x_list.append(np.average(line_x_new))
-        avg_new = np.average(self.avg_x_list)
+    def lineValid(self, line_x_new, rad_curv_new):
+        tol_x = 10
+        tol_rad = 1000
+        if(len(self.prev_x_list) == 0 or len(self.prev_rad_list) == 0):
+            return True
 
-        if abs(avg_old - avg_new) <= self.tol_x:
+        avg_x = np.mean(self.prev_x_list)
+        avg_rad = np.mean(self.prev_rad_list)
+        cond_x = abs(avg_x - np.mean(line_x_new)) <= tol_x
+        if(cond_x == False):
+            print("cond_x = false: avg_x = ", avg_x, " line_x = ", np.mean(line_x_new))
+        cond_rad = abs(avg_rad - rad_curv_new) <= tol_rad
+        if(cond_rad == False):
+            print("cond_rad = false: avg_rad = ", avg_rad, " rad_curv = ", rad_curv_new)
+        return (cond_x and cond_rad)
+
+        '''
+        # Calculate mean x-coord of last n lines
+        popped_x = None
+        avg_x_old = np.mean(self.prev_x_list)
+        if(len(self.prev_x_list) <= n):
+            self.prev_x_list.append(np.mean(line_x_new))
+        else:
+            popped_x = self.prev_x_list.popleft()
+            self.prev_x_list.append(np.mean(line_x_new))
+        avg_x_new = np.mean(self.prev_x_list)
+
+        # Calculate mean rad_curv of last n lines
+        popped_rad = None
+        avg_rad_old = np.mean(self.prev_rad_list)
+        if(len(self.prev_rad_list) <= n):
+            self.prev_rad_list.append(rad_curv_new)
+        else:
+            popped_rad = self.prev_rad_list.popleft()
+            self.prev_rad_list.append(rad_curv_new)
+        avg_rad_new = np.mean(self.prev_rad_list)
+
+        # Check condition
+        cond = ((abs(avg_x_old - avg_x_new) <= self.tol_x)
+                and (abs(avg_rad_old - avg_rad_new) <= self.tol_rad))
+        if cond == True:
             return True
         else:
-            #if(popped != None):
-            #    self.avg_x_list.pop()
-            #    self.avg_x_list.appendleft(popped)
+            if(popped_x != None):
+                self.prev_x_list.pop()
+                self.prev_x_list.appendleft(popped_x)
+            if(popped_rad != None):
+                self.prev_rad_list.pop()
+                self.prev_rad_list.appendleft(popped_rad)
             return False
+        '''
+
+    # Function to calculate radius of curvature of line
+    def findRadCurv(self):
+        scale_x = 3.7/109
+        scale_y = 3/30
+        rad_curv = 0
+        if (self.line_y != None and self.line_x != None):
+            y = np.max(self.line_y) * scale_y
+            line_coeff_sc = np.polyfit(self.line_y*scale_y, self.line_x*scale_x, 2)
+            rad_curv = ((1 + (2*line_coeff_sc[0]*y + line_coeff_sc[1])**2)**1.5) \
+                            / np.absolute(2 * line_coeff_sc[0])
+            return rad_curv
 
 
     # Function to draw line

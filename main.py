@@ -14,6 +14,7 @@ def drawLane(cam, img_orig, img_bin, line_l, line_r):
     # Find lines
     line_l.findLine(img_bin)
     line_r.findLine(img_bin)
+    #print(line_r.findRadCurv())
     # Draw lines
     img_zeros = np.zeros_like(img_bin).astype('uint8')
     img = np.dstack((img_zeros, img_zeros, img_zeros))*255
@@ -85,9 +86,6 @@ if __name__ == '__main__':
     offset = 10
     w = 200
     h = 300
-    #offset = 30
-    #w = 256
-    #h = 144
     trans_dst = np.array([[offset, offset],
                           [w-offset, offset],
                           [w-offset,h-offset],
@@ -119,6 +117,7 @@ if __name__ == '__main__':
         cv2.namedWindow("Top-Down", flags=cv2.WINDOW_AUTOSIZE)
         cv2.namedWindow("Output", flags=cv2.WINDOW_AUTOSIZE)
 
+        #i=0
         for frame in video.iter_frames():
             # Undistort frame
             frame_undst = cam.undistortImg(frame)
@@ -126,6 +125,9 @@ if __name__ == '__main__':
             # Warp ROI to get top-down view
             frame_warp = cam.warpImage(frame_undst)
             cv2.imshow("Top-Down", frame_warp)
+            #img_name = "videos/top_down/img" + str(i) + ".png"
+            #i += 1
+            #cv2.imwrite(img_name, frame_warp)
             # Convert warped frame to binary
             frame_bin = cam.convertToBinary(frame_warp)
             # Detect lanes
