@@ -140,8 +140,8 @@ class Line():
                     self.line_x = (avg_coeff[0]*self.line_y**2
                                     + avg_coeff[1]*self.line_y
                                     + avg_coeff[2])
-                    print(self.side +
-                        ": not detected, using avg_coeff: ",  avg_coeff)
+                    #print(self.side +
+                    #    ": not detected, using avg_coeff: ",  avg_coeff)
 
         # TODO: Line detected in the previous frame
         # elif self.detected == True:
@@ -153,7 +153,7 @@ class Line():
         if self.side == 'left':
             n = 5
         elif self.side == 'right':
-            n = 10
+            n = 12
         # Check condition
         if len(np.unique(self.y_coords)) >= self.img_h/n:
             return True
@@ -171,48 +171,13 @@ class Line():
         avg_x = np.mean(self.prev_x_list)
         avg_rad = np.mean(self.prev_rad_list)
         cond_x = abs(avg_x - np.mean(line_x_new)) <= tol_x
-        if(cond_x == False):
-            print("cond_x = false: avg_x = ", avg_x, " line_x = ", np.mean(line_x_new))
+        #if(cond_x == False):
+            #print("cond_x = false: avg_x = ", avg_x, " line_x = ", np.mean(line_x_new))
         cond_rad = abs(avg_rad - rad_curv_new) <= tol_rad
-        if(cond_rad == False):
-            print("cond_rad = false: avg_rad = ", avg_rad, " rad_curv = ", rad_curv_new)
+        #if(cond_rad == False):
+            #print("cond_rad = false: avg_rad = ", avg_rad, " rad_curv = ", rad_curv_new)
         return (cond_x and cond_rad)
 
-        '''
-        # Calculate mean x-coord of last n lines
-        popped_x = None
-        avg_x_old = np.mean(self.prev_x_list)
-        if(len(self.prev_x_list) <= n):
-            self.prev_x_list.append(np.mean(line_x_new))
-        else:
-            popped_x = self.prev_x_list.popleft()
-            self.prev_x_list.append(np.mean(line_x_new))
-        avg_x_new = np.mean(self.prev_x_list)
-
-        # Calculate mean rad_curv of last n lines
-        popped_rad = None
-        avg_rad_old = np.mean(self.prev_rad_list)
-        if(len(self.prev_rad_list) <= n):
-            self.prev_rad_list.append(rad_curv_new)
-        else:
-            popped_rad = self.prev_rad_list.popleft()
-            self.prev_rad_list.append(rad_curv_new)
-        avg_rad_new = np.mean(self.prev_rad_list)
-
-        # Check condition
-        cond = ((abs(avg_x_old - avg_x_new) <= self.tol_x)
-                and (abs(avg_rad_old - avg_rad_new) <= self.tol_rad))
-        if cond == True:
-            return True
-        else:
-            if(popped_x != None):
-                self.prev_x_list.pop()
-                self.prev_x_list.appendleft(popped_x)
-            if(popped_rad != None):
-                self.prev_rad_list.pop()
-                self.prev_rad_list.appendleft(popped_rad)
-            return False
-        '''
 
     # Function to calculate radius of curvature of line
     def findRadCurv(self):

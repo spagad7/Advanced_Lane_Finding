@@ -14,7 +14,7 @@ def drawLane(cam, img_orig, img_bin, line_l, line_r):
     # Find lines
     line_l.findLine(img_bin)
     line_r.findLine(img_bin)
-    #print(line_r.findRadCurv())
+    print("Radius of Curvature = ", line_r.findRadCurv())
     # Draw lines
     img_zeros = np.zeros_like(img_bin).astype('uint8')
     img = np.dstack((img_zeros, img_zeros, img_zeros))*255
