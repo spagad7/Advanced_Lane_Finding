@@ -14,7 +14,11 @@ def drawLane(cam, img_orig, img_bin, line_l, line_r):
     # Find lines
     line_l.findLine(img_bin)
     line_r.findLine(img_bin)
-    print("Radius of Curvature = ", line_r.findRadCurv())
+    #print("Radius of Curvature = ",
+    #                    np.mean([line_r.findRadCurv(), line_l.findRadCurv()]))
+    pos = (abs(line_l.img_w//2 - np.mean([line_l.line_x[-1], line_r.line_x[-1]]))
+            * line_l.x_m_per_px)
+    print("Position of vehicle = ", pos)
     # Draw lines
     img_zeros = np.zeros_like(img_bin).astype('uint8')
     img = np.dstack((img_zeros, img_zeros, img_zeros))*255
@@ -125,9 +129,9 @@ if __name__ == '__main__':
             # Warp ROI to get top-down view
             frame_warp = cam.warpImage(frame_undst)
             cv2.imshow("Top-Down", frame_warp)
-            #img_name = "videos/top_down/img" + str(i) + ".png"
+            #img_name = "videos/decomposed3/img" + str(i) + ".png"
             #i += 1
-            #cv2.imwrite(img_name, frame_warp)
+            #cv2.imwrite(img_name, frame_undst)
             # Convert warped frame to binary
             frame_bin = cam.convertToBinary(frame_warp)
             # Detect lanes

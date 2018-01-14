@@ -19,6 +19,8 @@ class Line():
         self.y_coords = None
         self.line_y = None
         self.line_x = None
+        self.x_m_per_px = 3.7/109
+        self.y_m_per_px = 3/30
         self.pts = np.array([])
         self.prev_x_list = deque()
         self.prev_coeff = np.array([])
@@ -181,12 +183,10 @@ class Line():
 
     # Function to calculate radius of curvature of line
     def findRadCurv(self):
-        scale_x = 3.7/109
-        scale_y = 3/30
         rad_curv = 0
         if (self.line_y != None and self.line_x != None):
-            y = np.max(self.line_y) * scale_y
-            line_coeff_sc = np.polyfit(self.line_y*scale_y, self.line_x*scale_x, 2)
+            y = np.max(self.line_y) * self.y_m_per_px
+            line_coeff_sc = np.polyfit(self.line_y*self.y_m_per_px, self.line_x*self.x_m_per_px, 2)
             rad_curv = ((1 + (2*line_coeff_sc[0]*y + line_coeff_sc[1])**2)**1.5) \
                             / np.absolute(2 * line_coeff_sc[0])
             return rad_curv
