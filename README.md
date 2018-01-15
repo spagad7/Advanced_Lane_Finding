@@ -16,12 +16,30 @@ of chessboard images.
 * Apply perspective transform to get top-down("birds-eye-view") of the road
 * Improve contrast of the image using adaptive histogram equalization.
 * Use color transforms, gradients to create thresholded binary image.
-* Use sliding window technique to identify the lane boundaries.
+* Use sliding window and neighborhood search algorithms to identify the lane boundaries.
 * Determine curvature of the lane and position of the vehicle with respect to
 the center of the lane.
 * Undo perspective transform to draw the detected lane on the input video.
 * Display output image with annotated lane, radius of curvature of lane and
 position of the vehicle in the lane.
+
+
+## Usage
+To run the program with calib file
+
+```
+python main.py -c=<calib file name> -v=<path to input video file>
+
+Ex: python main.py -c=calib.p -v=videos/project_video.mp4
+```
+
+To run the program without calib file
+
+```
+python main.py -p=<path to chessboard images> -nx=<number of corners along x axis> -ny=<number of corners along y axis> -c=<calib file name> -v=<path to input video file>
+
+Ex: python main.py -p=camera_cal -nx=9 -ny=6 -c=calib.p -v=videos/project_video.mp4
+```
 
 
 [//]: # (Image References)
@@ -83,8 +101,6 @@ This file contains the code for pipeline and also has a function to draw lanes.
 ## Rubric Points
 
 ### Camera Calibration
-
-
 
 #### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
