@@ -19,7 +19,7 @@ class Line():
         self.y_coords = None
         self.line_y = None
         self.line_x = None
-        self.x_m_per_px = 3.7/109
+        self.x_m_per_px = 3.7/100
         self.y_m_per_px = 3/30
         self.pts = np.array([])
         self.prev_x_list = deque()

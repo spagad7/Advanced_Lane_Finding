@@ -14,17 +14,11 @@ def drawLane(cam, img_orig, img_bin, line_l, line_r):
     # Find lines
     line_l.findLine(img_bin)
     line_r.findLine(img_bin)
-    #print("Radius of Curvature = ",
-    #                    np.mean([line_r.findRadCurv(), line_l.findRadCurv()]))
-    pos = (abs(line_l.img_w//2 - np.mean([line_l.line_x[-1], line_r.line_x[-1]]))
-            * line_l.x_m_per_px)
-    print("Position of vehicle = ", pos)
     # Draw lines
     img_zeros = np.zeros_like(img_bin).astype('uint8')
     img = np.dstack((img_zeros, img_zeros, img_zeros))*255
     img_lines = line_l.drawLine(img)
     img_lines = line_r.drawLine(img_lines)
-    cv2.imshow("Lines", img_lines)
 
     # Create blank BGR image
     if(len(line_l.pts) != 0 and len(line_r.pts) != 0
@@ -34,13 +28,13 @@ def drawLane(cam, img_orig, img_bin, line_l, line_r):
         pts_lane = np.hstack((line_l.pts, line_r.pts))
         pts_lane = pts_lane.reshape(-1, 1, 2)
         # Draw lane
-        cv2.fillPoly(img_warp, [pts_lane], (0, 255, 0))
+        cv2.fillPoly(img_warp, [pts_lane], (0, 255, 255))
         img_lanes = cam.unwarpImage(img_warp)
         img_result = cv2.addWeighted(img_orig, 1.0, img_lanes, 0.3, 0)
     else:
         print("Lane not found!")
         img_result = img_orig
-    return img_result
+    return img_result, img_lines
 
 
 if __name__ == '__main__':
@@ -113,28 +107,55 @@ if __name__ == '__main__':
     line_l = Line('left')
     line_r = Line('right')
 
+    # Pipeline
     # Process video input
     if args.v != None:
-        print(args.v)
         video = VideoFileClip(args.v)
-        #cv2.namedWindow("Input", flags=cv2.WINDOW_AUTOSIZE)
-        cv2.namedWindow("Top-Down", flags=cv2.WINDOW_AUTOSIZE)
         cv2.namedWindow("Output", flags=cv2.WINDOW_AUTOSIZE)
-
-        #i=0
+        i=0
         for frame in video.iter_frames():
+            # Create blank image
+            frame_out = np.zeros((720,1280,3)).astype('uint8')
             # Undistort frame
             frame_undst = cam.undistortImg(frame)
-            #cv2.imshow("Input", frame_undst)
             # Warp ROI to get top-down view
             frame_warp = cam.warpImage(frame_undst)
-            cv2.imshow("Top-Down", frame_warp)
-            #img_name = "videos/decomposed3/img" + str(i) + ".png"
-            #i += 1
-            #cv2.imwrite(img_name, frame_undst)
+            frame_warp_rz = cv2.resize(frame_warp, (320,240))
+            frame_out[480:,960:,:] = frame_warp_rz
             # Convert warped frame to binary
             frame_bin = cam.convertToBinary(frame_warp)
+            frame_bin_rz = cv2.resize(frame_bin, (320,240))
+            frame_bin_rz = np.dstack((frame_bin_rz, frame_bin_rz, frame_bin_rz))
+            frame_out[240:480,960:,:] = frame_bin_rz
             # Detect lanes
-            frame_out = drawLane(cam, frame_undst, frame_bin, line_l, line_r)
+            frame_lanes, frame_lines = drawLane(cam, frame_undst,
+                                                frame_bin, line_l, line_r)
+            frame_lines_rz = cv2.resize(frame_lines, (320, 240))
+            frame_out[:240,960:,:] = frame_lines_rz
+            frame_lanes_bgr = cv2.cvtColor(frame_lanes, cv2.COLOR_RGB2BGR)
+            frame_lanes_rz = cv2.resize(frame_lanes_bgr, (960,540))
+            frame_out[:540,:960, :] = frame_lanes_rz
+
+            # Calculate radius of curvature and vehicle position
+            rad = np.mean([line_r.findRadCurv(), line_l.findRadCurv()])
+            pos = (abs(line_l.img_w//2
+                        -np.mean([line_l.line_x[-1], line_r.line_x[-1]]))
+                        * line_l.x_m_per_px) * 100
+            if(rad > 2500):
+                rad_str = "Lane curvature = infinity (straight-lane)"
+            else:
+                rad_str = "Lane curvature = " \
+                                                + str(int(np.ceil(rad))) + " m"
+
+            pos_str = "Lane offset    = " + str(int(np.ceil(pos))) + " cm"
+
+
+            # Draw radius of curvature and vehicle position on output image
+            cv2.putText(frame_out, rad_str,
+                        (30, 610), cv2.FONT_HERSHEY_SIMPLEX, 1.1,
+                        (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame_out, pos_str,
+                        (30, 670), cv2.FONT_HERSHEY_SIMPLEX, 1.1,
+                        (255, 255, 255), 2, cv2.LINE_AA)
             cv2.imshow("Output", frame_out)
             cv2.waitKey(1)
