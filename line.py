@@ -228,6 +228,4 @@ class Line():
             pts_rs = self.pts.reshape(-1, 1, 2)
             cv2.polylines(img, [pts_rs], False, [0, 255, 255], 1)
         return img
-
-
 # End of class Line

@@ -112,7 +112,6 @@ if __name__ == '__main__':
     if args.v != None:
         video = VideoFileClip(args.v)
         cv2.namedWindow("Output", flags=cv2.WINDOW_AUTOSIZE)
-        i=0
         for frame in video.iter_frames():
             # Create blank image
             frame_out = np.zeros((720,1280,3)).astype('uint8')

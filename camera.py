@@ -42,6 +42,7 @@ class Camera():
                                 (img.shape[1], img.shape[0]),
                                 None, None)
 
+
     # Function to save calibration data to file
     def saveCalibData(self, file_name):
         if(self.mtx == None or self.dist == None):
@@ -153,6 +154,12 @@ class Camera():
         # Apply threshold
         img_thresh = np.zeros_like(img_clahe)
         img_thresh[(img_clahe > thresh_low) & (img_clahe <= thresh_high)] = 255
+
+        #if(settings['cspace'] == 'LAB'):
+        #    img_nm = "images/img_lab.png"
+        #else:
+        #    img_nm = "images/img_hls.png"
+        #cv2.imwrite(img_nm, img_thresh)
         return  img_thresh
 
     # Function to convert 3 channel image to binary image using gradient and color
@@ -164,4 +171,5 @@ class Camera():
         img_thresh = np.zeros((img.shape[0], img.shape[1])).astype('uint8')
         for settings in self.color_settings:
             img_thresh += self.applyColorThreshold(img, settings)
+        #cv2.imwrite("images/img_thresh.png", img_thresh)
         return img_thresh
