@@ -217,7 +217,7 @@ Fig14: Output image
 
 ### Pipeline (video)
 
-**Note:** In output1 and output2 you don't see any search window rectangles because the Neighborhood Search algorithm is finding lines in the neighborhood of previously found line. To see the Sliding Window algorithm in action, please check second video.
+**Note:** In output1 and output2 you don't see any search window rectangles because the Neighborhood Search algorithm is finding lines in the neighborhood of previously found line. To see the Sliding Window algorithm in action, please check output3 and output4.
 
 * Link to output on _project_video.mp4_ with Sliding Window and Neighborhood Search [output1](videos/output1_norect.mp4)
 * Link to output on _challenge_video.mp4_ with Sliding Window and Neighborhood Search [output2](videos/output2_norect.mp4)
