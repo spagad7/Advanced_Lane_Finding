@@ -217,8 +217,6 @@ Fig14: Output image
 
 ### Pipeline (video)
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
-
 **Note:** In output1 and output2 you don't see any search window rectangles because the Neighborhood Search algorithm is finding lines in the neighborhood of previously found line. To see the Sliding Window algorithm in action, please check second video.
 
 * Link to output on _project_video.mp4_ with Sliding Window and Neighborhood Search [output1](videos/output1_norect.mp4)
